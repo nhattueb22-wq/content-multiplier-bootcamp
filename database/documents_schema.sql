@@ -1,48 +1,53 @@
--- Documents table for enhanced document management system
-CREATE TABLE IF NOT EXISTS documents (
+-- 1. Dọn dẹp bảng cũ
+DROP TABLE IF EXISTS document_chunks;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS knowledge_chunks;
+DROP TABLE IF EXISTS knowledge_document_categories;
+DROP TABLE IF EXISTS knowledge_documents;
+DROP TABLE IF EXISTS knowledge_categories;
+
+-- 2. Bật Vector
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 3. Tạo bảng Danh mục
+CREATE TABLE knowledge_categories (
     id SERIAL PRIMARY KEY,
-    title VARCHAR(500) NOT NULL,
-    author VARCHAR(255),
-    published_date DATE,
-    tags TEXT[], -- Array of tags
-    content TEXT NOT NULL,
-    file_path VARCHAR(1000),
-    file_type VARCHAR(50),
+    name TEXT UNIQUE NOT NULL,
+    description TEXT,
+    color TEXT DEFAULT '#3B82F6',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Tạo bảng Tài liệu (CHUẨN TÊN THEO CODE)
+CREATE TABLE knowledge_documents (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    file_type TEXT NOT NULL,
     file_size BIGINT,
-    status VARCHAR(50) DEFAULT 'processing', -- processing, ready, error
+    content_text TEXT,
+    metadata JSONB DEFAULT '{}',
+    status TEXT DEFAULT 'processing',
+    user_id INTEGER DEFAULT 1,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Document chunks table for text chunking and embeddings
-CREATE TABLE IF NOT EXISTS document_chunks (
-    id SERIAL PRIMARY KEY,
-    document_id INTEGER REFERENCES documents(id) ON DELETE CASCADE,
-    chunk_index INTEGER NOT NULL,
-    content TEXT NOT NULL,
-    embedding VECTOR(1536), -- OpenAI embedding dimension
-    token_count INTEGER,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- 5. Tạo bảng Trung gian
+CREATE TABLE knowledge_document_categories (
+    document_id INTEGER REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+    category_id INTEGER REFERENCES knowledge_categories(id) ON DELETE CASCADE,
+    PRIMARY KEY (document_id, category_id)
 );
 
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_documents_title ON documents(title);
-CREATE INDEX IF NOT EXISTS idx_documents_author ON documents(author);
-CREATE INDEX IF NOT EXISTS idx_documents_tags ON documents USING GIN(tags);
-CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status);
-CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at);
-
-CREATE INDEX IF NOT EXISTS idx_document_chunks_document_id ON document_chunks(document_id);
-CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-
--- Update function for updated_at
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 6. Tạo bảng Chunks (CHUẨN TÊN THEO CODE)
+CREATE TABLE knowledge_chunks (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+    chunk_text TEXT,
+    chunk_index INTEGER,
+    token_count INTEGER,
+    embedding vector(1536),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
