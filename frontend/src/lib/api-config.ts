@@ -33,7 +33,7 @@ let _cachedApiUrl: string | null = null;
 export const API_URL = (() => {
   // For server-side rendering, return production URL
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'https://content-multiplier-bootcamp-production.up.railway.app';
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
   }
   // For client-side, cache the result
   if (_cachedApiUrl === null) {
